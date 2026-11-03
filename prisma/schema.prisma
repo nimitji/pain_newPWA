@@ -1,0 +1,226 @@
+// Prisma Schema for PPJain Community Platform
+// Compatible with PostgreSQL / SQLite
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MEMBER
+  COMMITTEE
+  ADMIN
+  SUPERADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  mobile        String    @unique
+  fullname      String
+  gender        Gender    @default(MALE)
+  passwordHash  String
+  role          Role      @default(MEMBER)
+  isVerified    Boolean   @default(false)
+  otpCode       String?
+  otpExpiresAt  DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  familyHeadOf  Family?   @relation("FamilyHead")
+  memberProfile Member?   @relation("UserMemberProfile")
+  auditLogs     AuditLog[]
+
+  @@index([mobile])
+  @@index([role])
+}
+
+model Family {
+  id              String         @id @default(cuid())
+  familyMid       String         @unique // e.g. PPJ0001
+  headOfFamilyId  String         @unique
+  headOfFamily    User           @relation("FamilyHead", fields: [headOfFamilyId], references: [id])
+  nativePlace     String?
+  currentCity     String
+  permanentAddress String
+  approvalStatus  ApprovalStatus @default(APPROVED)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  members         Member[]
+
+  @@index([familyMid])
+  @@index([currentCity])
+}
+
+model Member {
+  id                 String    @id @default(cuid())
+  mid                String    // Individual or Family MID
+  fullname           String
+  fatherOrHusbandName String?
+  gender             Gender    @default(MALE)
+  dateOfBirth        DateTime?
+  age                Int?
+  maritalStatus      String?
+  bloodGroup         String?
+  nativePlace        String?
+  city               String
+  permanentAddress   String
+  mobile             String?   // Raw phone (strictly masked in public views)
+  email              String?
+  occupation         String?
+  education          String?
+  relationToHof      String?   // e.g. Self, Wife, Son, Daughter
+  
+  familyId           String
+  family             Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  userId             String?   @unique
+  user               User?     @relation("UserMemberProfile", fields: [userId], references: [id])
+
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([mid])
+  @@index([fullname])
+  @@index([city])
+}
+
+model CommitteeMember {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  title       String   // e.g. Chairman, Trustee, P.R.O.
+  gender      Gender   @default(MALE)
+  phone       String
+  whatsapp    String?
+  email       String?
+  caste       String   @default("Jain")
+  gotra       String   @default("Padmawati Purwal")
+  address     String
+  city        String
+  image       String
+  bio         String
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([sortOrder])
+}
+
+model Magazine {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  publishDate String
+  coverImage  String
+  embedUrl    String   // FlipHTML5 embed URL
+  description String
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+}
+
+model NewsArticle {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  publishDate String
+  displayDate String
+  banner      String?
+  summary     String
+  content     String
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+}
+
+model MatrimonialProfile {
+  id                String   @id @default(cuid())
+  candidateId       String   @unique // e.g. PPJ-MAT-101
+  name              String
+  gender            Gender
+  age               Int
+  birthYear         Int
+  height            String
+  education         String
+  profession        String
+  companyOrBusiness String
+  city              String
+  state             String
+  nativePlace       String
+  fatherName        String
+  fatherOccupation  String?
+  motherName        String?
+  gotraSelf         String
+  gotraMother       String
+  contactPerson     String
+  maskedContact     String
+  photoUrl          String
+  aboutCandidate    String
+  isApproved        Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([candidateId])
+  @@index([gender])
+  @@index([city])
+}
+
+model DownloadItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    String   // e.g. Census Form, Constitution & Bylaws
+  fileSize    String
+  format      String   @default("PDF")
+  downloadUrl String
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+}
+
+model ContactInquiry {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String   // e.g. LOGIN, UPDATE_FAMILY, APPROVE_MEMBER
+  entity    String
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+}
